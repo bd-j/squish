@@ -3,7 +3,7 @@ import numpy as np
 
 class SliceSampler(object):
 
-    def __init__(self, Sigma, lnpostfn, **postargs, **postkwargs):
+    def __init__(self, Sigma, lnpostfn, *postargs, **postkwargs):
         # Useful matrices for coordinate transforms
         self.Sigma = Sigma
         self.L = np.linalg.cholesky(Sigma)
@@ -12,6 +12,10 @@ class SliceSampler(object):
         self._lnpostfn = lnpostfn
         self.postargs = postargs
         self.postkwargs = postkwargs
+
+        self._chain = np.empty((0, self.ndim))
+        self._lnprob = np.empty((0))
+
 
     def lnpostfn(self, pos, ctype='theta'):
         if ctype == 'theta':
@@ -29,23 +33,45 @@ class SliceSampler(object):
     
     def random_direction(self):
         n = np.random.normal(size=self.ndim)
-        n /= magntiude(n)
+        n /= magnitude(n)
         return n
 
     @property
     def ndim(self):
         return self.Sigma.shape[0]
 
+    def sample(self, p0, lnp0, niter=1, storechain=True):
+        p, lnp = p0.copy(), lnp0.copy()
+        if storechain:
+            # N = int(niter / thin)
+            N = niter
+            self._chain = np.concatenate((self._chain,
+                                          np.zeros((N, self.ndim))), axis=0)
+            self._lnprob = np.concatenate((self._lnprob,
+                                           np.zeros(N)), axis=0)
+
+        for i in range(niter):
+            print(i)
+            p, lnp = self.one_sample(p, lnp)
+            if storechain:
+                self._chain[i, :] = p
+                self._lnprob[i] = lnp
+            yield p, lnp
+
+            
     def one_sample(self, pos0, lnp0=None, step_out=True):
 
-        # We choose unit normal direction vector randomly on the n-sphere
+        # We choose unit normal direction vector uniformly on the n-sphere
         direction = self.random_direction()
-        # And transform into the parameter space, including scaling (i.e. step
-        # sizes in each dimension), and then renormalize
-        pvector = self.x_to_theta(direction)
-        pscale = magnitude(pdirection)
-        pdirection /= pscale
 
+        # And transform into the parameter space, including scaling
+        # (i.e. step sizes in each dimension), and then renormalize,
+        # keeping the scaling separate.
+        pvector = self.x_to_theta(direction)
+        pscale = magnitude(pvector)
+        pdirection = pvector / pscale
+
+        # Now slice sample along the transformed direction vector.
         return self.one_sample_x(pos0, lnp0=lnp0, stepsize=pscale,
                                  direction=pdirection, step_out=step_out,
                                  ctype='theta')
@@ -61,13 +87,14 @@ class SliceSampler(object):
         lnp_slice = lnp0 + np.log(np.random.rand())
 
         # Move along the direction vector by a scaled uniform random amount
+        r = np.random.rand()
         x_l = x0 - r * stepsize * direction
         x_r = x0 + (1 - r) * stepsize * direction
 
         # Step the left and right limits out until you get below the slice probability
         if step_out:
-            lnp_l = self.lnpostfn_x(x_l)
-            lnp_r = self.lnpostfn_x(x_r)
+            lnp_l = self.lnpostfn(x_l, ctype=ctype)
+            lnp_r = self.lnpostfn(x_r, ctype=ctype)
             while lnp_l > lnp_slice:
                 x_l = x_l - stepsize * direction
                 lnp_l = self.lnpostfn(x_l, ctype=ctype)
@@ -100,4 +127,4 @@ class SliceSampler(object):
 
 
 def magnitude(x):
-    return np.sqrt(x**2.sum())
+    return np.sqrt((x**2).sum())
