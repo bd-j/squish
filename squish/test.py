@@ -27,11 +27,13 @@ def test_gaussian():
 
 
 def test_rosenbrock():
-    p0 = np.array([1, 1])
+    p0 = np.array([-1, 1])
     Sigma = np.diag([10, 10])
     ss = SliceSampler(Sigma, rosenbrock, a=1, b=100)
 
     res = [r for r in ss.sample(p0, rosenbrock(p0, a=1, b=100), niter=10000)]
     fig = triangle.corner(ss._chain)
+    best = ss._chain[np.argmax(ss._lnprob), :]
+    print(best)
     fig.show()
     
