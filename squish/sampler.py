@@ -103,7 +103,8 @@ class SliceSampler(object):
                 x_r = x_r + stepsize * direction
                 lnp_r = self.lnpostfn(x_r, ctype=ctype)
 
-        # Now sample within the limits, shrinking limits to new samples until you hit the slice lnp
+        # Now sample within the limits, shrinking limits to new samples until
+        # you hit the slice lnp
         while True:
             rr = np.random.uniform()
             xlength = magnitude(x_r - x_l)
@@ -113,14 +114,15 @@ class SliceSampler(object):
                 # Boom!
                 return x_try, lnp_try
             else:
-                # Now we need to compare the distance from left edge to original point
-                # to the distance from the left edge to the trial point.
-                # could probably do this by dotting xtry-x0 into direction and checking the sign
-                dpos = magnitude(x0 - x_l) 
-                if dpos > (rr * xlength):
+                # Now we need to see if the new point is to the 'right' or
+                # 'left' of the original point.  We do this by dotting xtry-x0
+                # into direction and checking the sign.
+                # dpos = magnitude(x0 - x_l)
+                s = np.dot(x_try - x0, direction)
+                if s < 0:
                     # if distance to original point is larger, then trial point is to the 'left'
                     x_l = x_try
-                elif dpos < (rr * xlength):
+                elif s > 0:
                     x_r = x_try
                 else:
                     raise(RuntimeError, "Slice sampler shrank to original point?")
