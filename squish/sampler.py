@@ -4,6 +4,19 @@ import numpy as np
 class SliceSampler(object):
 
     def __init__(self, Sigma, lnpostfn, *postargs, **postkwargs):
+        """
+        :param Sigma:
+            Covariance matrix describing an n-ellipsoid
+
+        :param lnpostfn:
+            The function that returns the posterior probability.
+
+        :param *postargs: (optional)
+            Arguments to lnpostfn
+
+        :param **postkwargs:
+            Keyword arguments to lnpostfn
+        """
         # Useful matrices for coordinate transforms
         self.Sigma = Sigma
         self.L = np.linalg.cholesky(Sigma)
@@ -13,18 +26,40 @@ class SliceSampler(object):
         self.postargs = postargs
         self.postkwargs = postkwargs
 
+        self.reset()
+
+    def reset(self):
+        """Reset the chain to have no elements, and zero-out 'nlike' 
+        """
         self._chain = np.empty((0, self.ndim))
         self._lnprob = np.empty((0))
-
-
+        self.nlike = 0
+        
     def lnpostfn(self, pos, ctype='theta'):
+        """A wrapper on the userdefined posterior function
+
+        :param pos:
+            Position in parameter space.  This can either be in the position
+            space or in the actual parameter space, depending on the value of
+            `ctype`
+
+        :param ctype: (optional, default: 'theta')
+            Switch specifiying whether the `pos` parameter is the coordinates in
+            the actual parameter space (ctype='theta') or in the whitened
+            sampling space (ctype='x')
+
+        :returns lnp:
+             The ln of the (unnormalized) posterior probability at `pos`
+        """
+        self.nlike += 1
         if ctype == 'theta':
             return self._lnpostfn(pos, *self.postargs, **self.postkwargs)
         elif ctype == 'x':
-            return self._lnpostfn(self.x_to_theta(pos), *self.postargs, **self.postkwargs)
-    
+            return self._lnpostfn(self.x_to_theta(pos), *self.postargs,
+                                  **self.postkwargs)
+        
     def theta_to_x(self, theta):
-        """transform from parameter space Theta to the sampling space X
+        """Transform from parameter space Theta to the sampling space X
         """
         return np.dot(self.Linv, theta)
 
@@ -32,6 +67,8 @@ class SliceSampler(object):
         return np.dot(self.L, x)
     
     def random_direction(self):
+        """Generate a vector uniformly sampled from the unit n-sphere.
+        """
         n = np.random.normal(size=self.ndim)
         n /= magnitude(n)
         return n
@@ -51,14 +88,12 @@ class SliceSampler(object):
                                            np.zeros(N)), axis=0)
 
         for i in range(niter):
-            print(i)
             p, lnp = self.one_sample(p, lnp)
             if storechain:
                 self._chain[i, :] = p
                 self._lnprob[i] = lnp
             yield p, lnp
 
-            
     def one_sample(self, pos0, lnp0=None, step_out=True):
 
         # We choose unit normal direction vector uniformly on the n-sphere
@@ -71,7 +106,9 @@ class SliceSampler(object):
         pscale = magnitude(pvector)
         pdirection = pvector / pscale
 
-        # Now slice sample along the transformed direction vector.
+        # Now slice sample along the transformed direction vector, with
+        # stepping out given by the length of the full direction vector in each
+        # dimension.
         return self.one_sample_x(pos0, lnp0=lnp0, stepsize=pscale,
                                  direction=pdirection, step_out=step_out,
                                  ctype='theta')
@@ -129,4 +166,4 @@ class SliceSampler(object):
 
 
 def magnitude(x):
-    return np.sqrt((x**2).sum())
+    return np.sqrt(np.dot(x, x))
