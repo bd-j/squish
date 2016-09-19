@@ -16,12 +16,13 @@ def test_gaussian(niter=10000, ndim=2):
 
     ivar = 1. / np.random.rand(ndim)
     p0 = np.random.rand(ndim)
+    lnp0 = lnprob_gaussian(p0, ivar)
 
-    Sigma = np.diag(ivar)
-    ss = SliceSampler(Sigma, lnprob_gaussian, ivar)
+    transform = np.linalg.cholesky(np.diag(ivar))
+    ss = SliceSampler(transform, lnprob_gaussian, postargs=[ivar])
 
-    res = [r for r in ss.sample(p0, lnprob_gaussian(p0, ivar), niter=niter)]
-    fig = triangle.corner(ss._chain)
+    res = [r for r in ss.sample(p0, lnp0, niter=niter)]
+    fig = triangle.corner(ss.chain)
     print('----\nGaussian')
     print('{} likelihood calls for {} iterations'.format(ss.nlike, niter))
     fig.show()
@@ -29,12 +30,14 @@ def test_gaussian(niter=10000, ndim=2):
 
 def test_rosenbrock(niter=10000, a=1, b=100):
     p0 = np.array([-1, 1])
-    Sigma = np.diag([a, b])
-    ss = SliceSampler(Sigma, rosenbrock, a=a, b=b)
+    lnp0 = rosenbrock(p0, a=a, b=b)
 
-    res = [r for r in ss.sample(p0, rosenbrock(p0, a=a, b=b), niter=niter)]
-    fig = triangle.corner(ss._chain)
-    best = ss._chain[np.argmax(ss._lnprob), :]
+    transform = np.linalg.cholesky(np.diag([a, b]))
+    ss = SliceSampler(transform, rosenbrock, postkwargs={'a':a, 'b':b})
+
+    res = [r for r in ss.sample(p0, lnp0, niter=niter)]
+    fig = triangle.corner(ss.chain)
+    best = ss.chain[np.argmax(ss.lnprob), :]
     print('----\nRosenbrock')
     print('{} likelihood calls for {} iterations'.format(ss.nlike, niter))
     print('max likelihood={}'.format(best))
