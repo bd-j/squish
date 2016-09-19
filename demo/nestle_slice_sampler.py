@@ -6,7 +6,7 @@ from squish import SliceSampler
 class SingleEllipsoidalSliceSampler(SingleEllipsoidalSampler):
 
     def __init__(self):
-        
+        # include all other init stuff.  Or put this in self.set_options()
         self.slicer = SliceSampler(self.ell.axes, self.lnpost)
 
     def lnpost(self, v):
@@ -18,16 +18,17 @@ class SingleEllipsoidalSliceSampler(SingleEllipsoidalSampler):
         logl = -float('inf')
         while logl < loglstar:
             while True:
-                # Multi ellipsoid version
+                # Multi ellipsoid version.  bounding_ellipsoids() needs to also
+                # return the index of the ellipse it chose.
                 #u, iell = bounding_ellipsoids(self.ells, rstate=self.rstate)
-                #slicer.transform = self.ells[iell].axes
+                #self.slicer.transform = self.ells[iell].axes
                 
                 u = self.ell.sample(rstate=self.rstate)
-                slicer.transform = self.ells.axes
+                self.slicer.transform = self.ells.axes
                 if np.all(u > 0.) and np.all(u < 1.):
                     break
-            slicer.reset()
-            u, logl = slicer.sample(u, None, niter=niter, storechain=False)
+            self.slicer.reset()
+            u, logl = self.slicer.sample(u, None, niter=niter, storechain=False)
             v = self.prior_transform(u)
             ncall += slicer.nlike
 
