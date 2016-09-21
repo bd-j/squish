@@ -36,13 +36,20 @@ def test_rosenbrock(niter=10000, a=1, b=100):
     ss = SliceSampler(transform, rosenbrock, postkwargs={'a':a, 'b':b})
 
     res = [r for r in ss.sample(p0, lnp0, niter=niter)]
-    fig = triangle.corner(ss.chain)
+    fig = triangle.corner(ss.chain, truths=[a, a], labels=[r'$x_1$', r'$x_2$'])
+    free = np.array(fig.axes)[~np.array([ax.has_data() for ax in fig.axes])]
     best = ss.chain[np.argmax(ss.lnprob), :]
-    print('----\nRosenbrock')
-    print('{} likelihood calls for {} iterations'.format(ss.nlike, niter))
-    print('max likelihood={}'.format(best))
+    text = 'Rosenbrock ($a={:4.1f}$, $b={:4.1f})$\n'.format(a, b)
+    text += '{} iterations\n'.format(niter)
+    text += '{} likelihood calls\n'.format(ss.nlike)
+    text += 'MAP: {:4.2f}, {:4.2f}'.format(*best)
+    free[0].text(0.01, 0.8, text, transform=free[0].transAxes, verticalalignment='top')
     fig.show()
+    fig.savefig('rosenbrock.pdf')
     
 if __name__ == "__main__":
-    test_gaussian(ndim=4)
+    import matplotlib.pyplot as pl
+    pl.rcParams['xtick.direction'] = 'in'
+    pl.rcParams['xtick.direction'] = 'in'
+    #test_gaussian(ndim=4)
     test_rosenbrock()
